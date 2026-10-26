@@ -123,12 +123,61 @@ def duration(days):
     return {"duration": {"unit": "days", "amount": int(days)}}
 
 
-def app_line(row):
-    return f"{row['id']} {row['name']} {row['status']}"
+COLOR = 0x8B7CF0
 
 
-def license_line(row):
-    return f"{row['id']} {row['key_prefix']} {row['status']}"
+def clip(value, limit=1024):
+    text = str(value).strip()
+    return (text or "—")[:limit]
+
+
+def embed(title, description=None, fields=None, color=COLOR):
+    body = {"title": clip(title, 256), "color": color}
+    if description:
+        body["description"] = clip(description, 4096)
+    if fields:
+        body["fields"] = fields[:25]
+    return body
+
+
+def field(name, value, inline=True):
+    return {"name": clip(name, 256), "value": clip(value), "inline": inline}
+
+
+def code(value):
+    return f"`{clip(value, 1000).replace('`', '\'')}`"
+
+
+def cards(title, rows, make, empty):
+    if not rows:
+        return [embed(title, empty)]
+    made = []
+    for start in range(0, len(rows), 25):
+        made.append(embed(
+            title if not made else f"{title} {len(made) + 1}",
+            fields=[make(row) for row in rows[start:start + 25]],
+        ))
+        if len(made) == 10:
+            break
+    return made
+
+
+def app_embed(row, title):
+    return embed(title, fields=[
+        field("Name", row["name"]),
+        field("Status", row["status"]),
+        field("Slug", row.get("slug") or "—"),
+        field("Id", code(row["id"]), False),
+    ])
+
+
+def license_embed(row, title, key=None):
+    return embed(title, fields=[
+        field("Key", code(key or row.get("key_prefix") or "—"), False),
+        field("Status", row.get("status") or "—"),
+        field("Expires", row.get("expires_at") or "Lifetime"),
+        field("Id", code(row["id"]), False),
+    ])
 
 
 def text_of(error):
@@ -137,43 +186,44 @@ def text_of(error):
         text = json.loads(text).get("message") or text
     except json.JSONDecodeError:
         pass
-    return str(text)[:1900]
+    return str(text)[:4096]
 
 
 def handle(name, sub, picked):
     if name == "apps":
         rows = api("GET", "/v1/workspace/apps")["applications"]
-        return "\n".join(app_line(row) for row in rows) or "No applications."
+        return cards("Applications", rows, lambda row: field(row["name"], f"{row['status']}\n{code(row['id'])}", False), "No applications.")
     if name == "app" and sub == "create":
-        return app_line(api("POST", "/v1/workspace/apps", {"name": picked["name"]})["application"])
+        return [app_embed(api("POST", "/v1/workspace/apps", {"name": picked["name"]})["application"], "Application created")]
     if name == "app" and sub in {"pause", "unpause"}:
-        return app_line(api("POST", f"/v1/workspace/apps/{picked['id']}/{sub}")["application"])
+        return [app_embed(api("POST", f"/v1/workspace/apps/{picked['id']}/{sub}")["application"], "Application")]
     if name == "app" and sub == "delete":
         api("DELETE", f"/v1/workspace/apps/{picked['id']}")
-        return f"Deleted {picked['id']}"
+        return [embed("Application deleted", code(picked["id"]))]
     if name == "licenses":
         rows = api("GET", f"/v1/workspace/apps/{picked['app']}/licenses")["licenses"]
-        return "\n".join(license_line(row) for row in rows) or "No licenses."
-    if name == "license" and sub == "create":
-        made = api(
-            "POST",
-            f"/v1/workspace/apps/{picked['app']}/licenses",
-            duration(picked.get("days", 30)),
+        return cards(
+            "Licenses",
+            rows,
+            lambda row: field(row.get("key_prefix") or "License", f"{row['status']}\n{row.get('expires_at') or 'Lifetime'}\n{code(row['id'])}", False),
+            "No licenses.",
         )
-        return "\n".join(f"{item['license']['id']} {item['license_key']}" for item in made["licenses"])
+    if name == "license" and sub == "create":
+        made = api("POST", f"/v1/workspace/apps/{picked['app']}/licenses", duration(picked.get("days", 30)))
+        return [license_embed(item["license"], "License created", item["license_key"]) for item in made["licenses"][:10]]
     if name == "license" and sub == "extend":
-        return license_line(api("POST", f"/v1/workspace/licenses/{picked['id']}/extend", duration(picked["days"]))["license"])
+        return [license_embed(api("POST", f"/v1/workspace/licenses/{picked['id']}/extend", duration(picked["days"]))["license"], "License extended")]
     if name == "license" and sub in {"pause", "unpause"}:
-        return license_line(api("POST", f"/v1/workspace/licenses/{picked['id']}/{sub}")["license"])
+        return [license_embed(api("POST", f"/v1/workspace/licenses/{picked['id']}/{sub}")["license"], "License")]
     if name == "license" and sub == "delete":
         api("DELETE", f"/v1/workspace/licenses/{picked['id']}")
-        return f"Deleted {picked['id']}"
+        return [embed("License deleted", code(picked["id"]))]
     if name == "license" and sub == "reset":
         api("POST", f"/v1/workspace/licenses/{picked['id']}/reset-devices")
-        return f"Reset {picked['id']}"
+        return [embed("Computer slot reset", code(picked["id"]))]
     if name == "license" and sub == "key":
-        return api("GET", f"/v1/workspace/licenses/{picked['id']}/key")["license_key"]
-    return "Unknown command."
+        return [embed("License key", code(api("GET", f"/v1/workspace/licenses/{picked['id']}/key")["license_key"]))]
+    return [embed("Unknown command")]
 
 
 def perform(data):
@@ -185,9 +235,9 @@ def perform(data):
         sub = ""
         picked = {item["name"]: item["value"] for item in top}
     try:
-        return handle(data.get("name", ""), sub, picked)
+        return handle(data.get("name", ""), sub, picked)[:10]
     except Exception as error:
-        return text_of(error)
+        return [embed("Error", text_of(error), color=0xD4534E)]
 
 
 class Socket:
@@ -298,11 +348,11 @@ def answer(interaction):
     except Exception as error:
         print(text_of(error))
         return
-    text = perform(interaction.get("data") or {})
+    embeds = perform(interaction.get("data") or {})
     try:
         call(
             f"https://discord.com/api/v10/webhooks/{interaction['application_id']}/{interaction['token']}",
-            {"content": text[:1900], "flags": 64},
+            {"embeds": embeds, "flags": 64},
             None,
             "POST",
         )
