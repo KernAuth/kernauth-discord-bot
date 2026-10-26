@@ -9,75 +9,6 @@ import time
 import urllib.error
 import urllib.request
 
-COMMANDS = [
-    {
-        "name": "apps",
-        "description": "List applications",
-        "dm_permission": False,
-        "default_member_permissions": "8",
-    },
-    {
-        "name": "app",
-        "description": "Manage an application",
-        "dm_permission": False,
-        "default_member_permissions": "8",
-        "options": [
-            {"type": 1, "name": "create", "description": "Create an application", "options": [
-                {"type": 3, "name": "name", "description": "Name", "required": True},
-            ]},
-            {"type": 1, "name": "pause", "description": "Pause an application", "options": [
-                {"type": 3, "name": "id", "description": "Application id", "required": True},
-            ]},
-            {"type": 1, "name": "unpause", "description": "Unpause an application", "options": [
-                {"type": 3, "name": "id", "description": "Application id", "required": True},
-            ]},
-            {"type": 1, "name": "delete", "description": "Delete an application", "options": [
-                {"type": 3, "name": "id", "description": "Application id", "required": True},
-            ]},
-        ],
-    },
-    {
-        "name": "licenses",
-        "description": "List licenses",
-        "dm_permission": False,
-        "default_member_permissions": "8",
-        "options": [
-            {"type": 3, "name": "app", "description": "Application id", "required": True},
-        ],
-    },
-    {
-        "name": "license",
-        "description": "Manage a license",
-        "dm_permission": False,
-        "default_member_permissions": "8",
-        "options": [
-            {"type": 1, "name": "create", "description": "Create a license", "options": [
-                {"type": 3, "name": "app", "description": "Application id", "required": True},
-                {"type": 4, "name": "days", "description": "Days", "required": False, "min_value": 1, "max_value": 3650},
-            ]},
-            {"type": 1, "name": "pause", "description": "Pause a license", "options": [
-                {"type": 3, "name": "id", "description": "License id", "required": True},
-            ]},
-            {"type": 1, "name": "unpause", "description": "Unpause a license", "options": [
-                {"type": 3, "name": "id", "description": "License id", "required": True},
-            ]},
-            {"type": 1, "name": "extend", "description": "Extend a license", "options": [
-                {"type": 3, "name": "id", "description": "License id", "required": True},
-                {"type": 4, "name": "days", "description": "Days", "required": True, "min_value": 1, "max_value": 3650},
-            ]},
-            {"type": 1, "name": "delete", "description": "Delete a license", "options": [
-                {"type": 3, "name": "id", "description": "License id", "required": True},
-            ]},
-            {"type": 1, "name": "reset", "description": "Reset the computer slot", "options": [
-                {"type": 3, "name": "id", "description": "License id", "required": True},
-            ]},
-            {"type": 1, "name": "key", "description": "Show the license key", "options": [
-                {"type": 3, "name": "id", "description": "License id", "required": True},
-            ]},
-        ],
-    },
-]
-
 FATAL = {4004, 4010, 4011, 4012, 4013, 4014}
 
 
@@ -422,10 +353,81 @@ def main():
         raise SystemExit(text_of(error))
     print(f"https://discord.com/oauth2/authorize?client_id={app_id}&scope=bot%20applications.commands")
     guild = os.environ["DISCORD_GUILD_ID"].strip()
-    route = f"https://discord.com/api/v10/applications/{app_id}/guilds/{guild}/commands"
     while True:
         try:
-            call(route, COMMANDS, auth, "PUT")
+            call(
+                f"https://discord.com/api/v10/applications/{app_id}/guilds/{guild}/commands",
+                [
+                    {
+                        "name": "apps",
+                        "description": "List applications",
+                        "dm_permission": False,
+                        "default_member_permissions": "8",
+                    },
+                    {
+                        "name": "app",
+                        "description": "Manage an application",
+                        "dm_permission": False,
+                        "default_member_permissions": "8",
+                        "options": [
+                            {"type": 1, "name": "create", "description": "Create an application", "options": [
+                                {"type": 3, "name": "name", "description": "Name", "required": True},
+                            ]},
+                            {"type": 1, "name": "pause", "description": "Pause an application", "options": [
+                                {"type": 3, "name": "id", "description": "Application id", "required": True},
+                            ]},
+                            {"type": 1, "name": "unpause", "description": "Unpause an application", "options": [
+                                {"type": 3, "name": "id", "description": "Application id", "required": True},
+                            ]},
+                            {"type": 1, "name": "delete", "description": "Delete an application", "options": [
+                                {"type": 3, "name": "id", "description": "Application id", "required": True},
+                            ]},
+                        ],
+                    },
+                    {
+                        "name": "licenses",
+                        "description": "List licenses",
+                        "dm_permission": False,
+                        "default_member_permissions": "8",
+                        "options": [
+                            {"type": 3, "name": "app", "description": "Application id", "required": True},
+                        ],
+                    },
+                    {
+                        "name": "license",
+                        "description": "Manage a license",
+                        "dm_permission": False,
+                        "default_member_permissions": "8",
+                        "options": [
+                            {"type": 1, "name": "create", "description": "Create a license", "options": [
+                                {"type": 3, "name": "app", "description": "Application id", "required": True},
+                                {"type": 4, "name": "days", "description": "Days", "required": False, "min_value": 1, "max_value": 3650},
+                            ]},
+                            {"type": 1, "name": "pause", "description": "Pause a license", "options": [
+                                {"type": 3, "name": "id", "description": "License id", "required": True},
+                            ]},
+                            {"type": 1, "name": "unpause", "description": "Unpause a license", "options": [
+                                {"type": 3, "name": "id", "description": "License id", "required": True},
+                            ]},
+                            {"type": 1, "name": "extend", "description": "Extend a license", "options": [
+                                {"type": 3, "name": "id", "description": "License id", "required": True},
+                                {"type": 4, "name": "days", "description": "Days", "required": True, "min_value": 1, "max_value": 3650},
+                            ]},
+                            {"type": 1, "name": "delete", "description": "Delete a license", "options": [
+                                {"type": 3, "name": "id", "description": "License id", "required": True},
+                            ]},
+                            {"type": 1, "name": "reset", "description": "Reset the computer slot", "options": [
+                                {"type": 3, "name": "id", "description": "License id", "required": True},
+                            ]},
+                            {"type": 1, "name": "key", "description": "Show the license key", "options": [
+                                {"type": 3, "name": "id", "description": "License id", "required": True},
+                            ]},
+                        ],
+                    },
+                ],
+                auth,
+                "PUT",
+            )
             print("Registered commands")
             break
         except RuntimeError as error:
