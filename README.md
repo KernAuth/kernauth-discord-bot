@@ -58,6 +58,12 @@ KERNAUTH_API_BASE=https://api.kernauth.com
 KERNAUTH_API_KEY=ka_replace_me
 DISCORD_TOKEN=replace_me
 DISCORD_GUILD_ID=replace_me
+EMBED_COLOR=8B7CF0
+ERROR_COLOR=D4534E
+DEFAULT_LICENSE_DAYS=30
+MAX_LICENSE_DAYS=3650
+COMMAND_PERMISSION=8
+EPHEMERAL=true
 ```
 
 | Variable | Meaning |
@@ -66,6 +72,14 @@ DISCORD_GUILD_ID=replace_me
 | `KERNAUTH_API_KEY` | The `ka_…` developer key. |
 | `DISCORD_TOKEN` | The bot token. A leading `Bot ` is optional. The script strips it. |
 | `DISCORD_GUILD_ID` | The server where slash commands are registered. Commands do not appear in any other server. |
+| `EMBED_COLOR` | Hex color for successful embeds. The default is `8B7CF0`. A leading `#` is optional. |
+| `ERROR_COLOR` | Hex color for the error embed. The default is `D4534E`. |
+| `DEFAULT_LICENSE_DAYS` | Days used by `/license create` when Days is left empty. The default is 30. |
+| `MAX_LICENSE_DAYS` | Largest day count Discord will accept. The default and the API cap are 3650. |
+| `COMMAND_PERMISSION` | Discord permission number required to see the commands. `8` is Administrator. Leave it empty so every member can use them. |
+| `EPHEMERAL` | `true` shows the embed only to the person who ran the command. `false` posts it in the channel. |
+
+The first four variables are required. The rest have the defaults above when they are omitted. `DEFAULT_LICENSE_DAYS` cannot be higher than `MAX_LICENSE_DAYS`, and both must be from 1 to 3650.
 
 `bot.py` reads `.env` from the same directory. A variable that is already set in the environment wins over the file. Do not commit `.env`. It contains the API key and the bot token.
 
@@ -81,7 +95,7 @@ On Windows, `python bot.py` is the same command if that executable is Python 3.9
 
 On startup the script:
 
-1. Checks that all four variables are set. If one is missing, it exits with `Missing …`.
+1. Checks that the four required variables are set. If one is missing, it exits with `Missing …`. It also checks the customization values.
 2. Calls Discord and prints an invite URL:
 
    `https://discord.com/oauth2/authorize?client_id=…&scope=bot%20applications.commands`
@@ -93,13 +107,13 @@ The invite URL requests the `bot` and `applications.commands` scopes. It does no
 
 Leave this process running. If the gateway connection drops, the script reconnects after 5 seconds. A bad bot token makes Discord close the session, and the script exits with `Discord closed 4004`.
 
-Guild commands show up in that server as soon as registration succeeds. Restart `bot.py` after you change the command list or the reply code. Each start replaces this application's commands in that server.
+Guild commands show up in that server as soon as registration succeeds. Restart `bot.py` after you change a command or `.env`. Each start replaces this application's commands in that server.
 
 ## Commands
 
-Commands work in the registered server. They do not work in direct messages. Discord shows them to members with the Administrator permission, which includes the server owner. A server admin can change that later in **Server Settings → Integrations → KernAuth**.
+Commands work in the registered server. They do not work in direct messages. Discord shows them to members who have the permission in `COMMAND_PERMISSION`. The default, `8`, is Administrator, which includes the server owner. Leave that value empty to allow every member. A server admin can change a command later in **Server Settings → Integrations → KernAuth**.
 
-Type `/` in a channel and choose the command. Replies are ephemeral: only the person who ran the command can see the embed.
+Type `/` in a channel and choose the command. With `EPHEMERAL=true`, only the person who ran the command can see the embed.
 
 ### Applications
 
@@ -118,10 +132,10 @@ An application embed shows the name, status, slug, and id. Copy the id from `/ap
 | Command | What it does |
 | --- | --- |
 | `/licenses app:<app id>` | Lists licenses for one application. Each field shows the key prefix, status, expiry, and license id. |
-| `/license create app:<app id> days:<days>` | Creates one license. `days` is optional and defaults to 30. The allowed range is 1 to 3650. |
+| `/license create app:<app id> days:<days>` | Creates one license. `days` is optional and uses `DEFAULT_LICENSE_DAYS`. The allowed range is 1 to `MAX_LICENSE_DAYS`. |
 | `/license pause id:<license id>` | Pauses a license. |
 | `/license unpause id:<license id>` | Unpauses a license. |
-| `/license extend id:<license id> days:<days>` | Adds days to the license. `days` is required, from 1 to 3650. |
+| `/license extend id:<license id> days:<days>` | Adds days to the license. `days` is required, from 1 to `MAX_LICENSE_DAYS`. |
 | `/license delete id:<license id>` | Deletes a license. |
 | `/license reset id:<license id>` | Clears the saved computer on that license so the next activation can take the slot. |
 | `/license key id:<license id>` | Shows the stored license key. Needs the `licenses:reveal` scope. |
@@ -136,15 +150,15 @@ Expiry is the license `expires_at` time, or `Lifetime` when the license has no e
 
 ## Replies
 
-Successful embeds use the KernAuth violet `#8b7cf0`. A KernAuth or Discord error becomes a red embed titled **Error**. The description is the API `message` when the body is JSON, otherwise the response text.
+Successful embeds use `EMBED_COLOR`. A KernAuth or Discord error becomes an embed titled **Error** in `ERROR_COLOR`. The description is the API `message` when the body is JSON, otherwise the response text.
 
 The bot acknowledges the slash command immediately. KernAuth is called next, and the embed is sent as the command reply. KernAuth calls time out after 30 seconds.
 
 ## Access and safety
 
 - The bot holds one developer key for one organization. It does not ask the Discord user to sign in, and it does not check which KernAuth user they are.
-- Administrator-only is the default so a normal member cannot reveal or delete keys. That limit is a Discord command permission (`default_member_permissions` of Administrator). It is not a second KernAuth login.
-- Ephemeral replies are visible to the person who ran the command. Copy the key from that embed and treat it as a secret.
+- `COMMAND_PERMISSION=8` keeps the commands on administrators so a normal member cannot reveal or delete keys. That limit is a Discord permission. It is not a second KernAuth login.
+- With `EPHEMERAL=true`, the reply is visible to the person who ran the command. Copy the key from that embed and treat it as a secret. `EPHEMERAL=false` posts the key in the channel.
 - Pausing an application or a license blocks validation. Delete removes the record. Reset only clears the computer slot.
 - Do not put the API key, the bot token, or a real license key in a screenshot of the embed, in git, or in a public channel.
 
